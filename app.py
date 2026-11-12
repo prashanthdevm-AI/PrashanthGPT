@@ -10,7 +10,7 @@ from streamlit.errors import StreamlitSecretNotFoundError
 
 MODEL = "openai/gpt-4o-mini"
 CHATS_DIR = Path(__file__).parent / "chats"
-DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant. Give clear, friendly answers."
+SYSTEM_PROMPT = "You are a helpful assistant. Give clear, friendly answers."
 
 
 def load_chats():
@@ -150,54 +150,10 @@ def render_sidebar():
                         st.rerun()
 
         st.divider()
-        st.subheader("Settings")
-        temperature = st.slider(
-            "Temperature",
-            min_value=0.0,
-            max_value=2.0,
-            value=0.7,
-            step=0.1,
-            help="Lower values are more predictable; higher values are more varied.",
-        )
-        max_tokens = st.number_input(
-            "Maximum output tokens",
-            min_value=1,
-            max_value=8192,
-            value=512,
-            step=128,
-        )
-        context_length = st.slider(
-            "Recent messages to send",
-            min_value=1,
-            max_value=50,
-            value=10,
-            help="This includes your latest message.",
-        )
-        streaming = st.checkbox("Stream the response", value=True)
-
-        st.subheader("System prompt")
-        prompt_column, save_column = st.columns([4, 1])
-        with prompt_column:
-            st.text_area(
-                "System prompt",
-                key="system_prompt_draft",
-                label_visibility="collapsed",
-                height=130,
-            )
-        with save_column:
-            save_prompt = st.button("Save", help="Apply the edited system prompt")
-        if save_prompt:
-            st.session_state.system_prompt = st.session_state.system_prompt_draft
-            st.success("System prompt saved.")
-        st.caption("Prompt edits apply only after you click Save.")
-
-        st.divider()
         st.caption(
             "Chats are shared by everyone using this deployment. Visitors can "
             "see and delete them. Streamlit Cloud may clear local files after a restart."
         )
-
-        return temperature, int(max_tokens), context_length, streaming
 
 
 def main():
@@ -207,22 +163,19 @@ def main():
 
     if "chats" not in st.session_state:
         st.session_state.chats = load_chats()
-    if "system_prompt" not in st.session_state:
-        st.session_state.system_prompt = DEFAULT_SYSTEM_PROMPT
-    if "system_prompt_draft" not in st.session_state:
-        st.session_state.system_prompt_draft = st.session_state.system_prompt
-
     if not st.session_state.chats:
         create_chat()
     elif st.session_state.get("active_chat_id") not in st.session_state.chats:
         st.session_state.active_chat_id = next(iter(st.session_state.chats))
 
-    temperature, max_tokens, context_length, streaming = render_sidebar()
+    render_sidebar()
     active_chat = st.session_state.chats[st.session_state.active_chat_id]
 
     for message in active_chat["messages"]:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+
+    st.caption("This chatbot was built by Prashanth Dev M.")
 
     user_text = st.chat_input("Send a message")
     if not user_text:
@@ -245,8 +198,8 @@ def main():
         st.stop()
 
     request_messages = [
-        {"role": "system", "content": st.session_state.system_prompt},
-        *active_chat["messages"][-context_length:],
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *active_chat["messages"][-10:],
     ]
     client = OpenAI(
         api_key=api_key,
@@ -255,27 +208,14 @@ def main():
 
     try:
         with st.chat_message("assistant"):
-            if streaming:
-                response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=request_messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    stream=True,
-                )
-                assistant_text = st.write_stream(stream_text(response))
-            else:
-                response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=request_messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                assistant_text = response.choices[0].message.content
-                if assistant_text:
-                    st.markdown(assistant_text)
-                else:
-                    st.error("The model returned an empty response.")
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=request_messages,
+                temperature=0.7,
+                max_tokens=512,
+                stream=True,
+            )
+            assistant_text = st.write_stream(stream_text(response))
     except OpenAIError as error:
         st.error(f"The OpenRouter request failed: {error}")
         return

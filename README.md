@@ -8,9 +8,9 @@ API with `openai/gpt-4o-mini`.
 - Keeps active conversations in Streamlit session state and saves them as JSON
   files in `chats/` so they can be restored after a page refresh.
 - Lets you create, switch between, and delete conversations from the sidebar.
-- Includes controls for temperature, maximum output tokens, recent context
-  length, and response streaming.
-- Applies system prompt edits only after you click **Save**.
+- Uses the fixed system prompt: "You are a helpful assistant. Give clear,
+  friendly answers."
+- Keeps settings controls hidden from the sidebar.
 - Reads `OPENROUTER_API_KEY` from Streamlit secrets; the key is not stored in
   the app code.
 
